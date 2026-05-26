@@ -1,0 +1,88 @@
+start-all.sh
+jps
+1.List files in HDFS root
+hadoop fs -ls /
+
+2.List files recursively
+hadoop fs -ls -R /
+
+3.Local File Creation
+Create file
+
+gedit sample.txt
+
+Add content and save.
+
+4.Check local files
+ls
+
+5.View file content
+cat sample.txt
+
+6.Working with HDFS
+Create directory in HDFS
+
+hadoop fs -mkdir /rmm_bda_lab
+
+7.Upload file to HDFS
+hadoop fs -put sample.txt /rmm_bda_lab
+
+8.Check uploaded file
+hadoop fs -ls /rmm_bda_lab
+
+9.Read file from HDFS
+hadoop fs -cat /rmm_bda_lab/sample.txt
+
+10.Download File from HDFS
+hadoop fs -get /rmm_bda_lab/sample.txt
+Desktop/rmm/sample.txt
+
+11.Delete Files
+Delete file
+hadoop fs -rm /rmm_bda_lab/sample.txt
+
+12.Delete directory
+hadoop fs -rm -r /rmm_bda_lab
+
+13.Alternative Commands
+Upload using copyFromLocal
+hadoop fs -copyFromLocal sample.txt
+/rmm_bda_lab
+
+Download using copyToLocal
+hadoop fs -copyToLocal
+/rmm_bda_lab/sample.txt
+Desktop/rmm/sample1.txt
+
+14.Disk Usage
+hadoop fs -du -s -h /rmm_bda_labReading Files
+
+15.View full file
+hadoop fs -cat /rmm_bda_lab/sample.txt
+
+16.First lines
+hadoop fs -cat /rmm_bda_lab/sample.txt |
+head -n 5
+
+17.Last lines
+hadoop fs -cat /rmm_bda_lab/sample.txt | tail
+-n 2
+
+Writing to HDFS
+18.Append data
+echo "This is new data" | hadoop fs -
+appendToFile - /rmm_bda_lab/sample.txt
+
+19.Create new file
+echo "Sample Content" | hadoop fs -put -
+/rmm_bda_lab/sample1.txt
+
+20.Copy Files
+Create directory
+hadoop fs -mkdir /rmm_bda_lab1Copy file
+hadoop fs -cp /rmm_bda_lab/sample.txt
+/rmm_bda_lab1
+
+21.Move File
+hadoop fs -mv /rmm_bda_lab/sample.txt
+/rmm_bda_lab1
