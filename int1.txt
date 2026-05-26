@@ -1,0 +1,510 @@
+=============EXP HDFS Commands===============
+start-all.sh
+jps
+1.List files in HDFS root
+hadoop fs -ls /
+
+2.List files recursively
+hadoop fs -ls -R /
+
+3.Local File Creation
+Create file
+
+gedit sample.txt
+
+Add content and save.
+
+4.Check local files
+ls
+
+5.View file content
+cat sample.txt
+
+6.Working with HDFS
+Create directory in HDFS
+
+hadoop fs -mkdir /rmm_bda_lab
+
+7.Upload file to HDFS
+hadoop fs -put sample.txt /rmm_bda_lab
+
+8.Check uploaded file
+hadoop fs -ls /rmm_bda_lab
+
+9.Read file from HDFS
+hadoop fs -cat /rmm_bda_lab/sample.txt
+
+10.Download File from HDFS
+hadoop fs -get /rmm_bda_lab/sample.txt
+Desktop/rmm/sample.txt
+
+11.Delete Files
+Delete file
+hadoop fs -rm /rmm_bda_lab/sample.txt
+
+12.Delete directory
+hadoop fs -rm -r /rmm_bda_lab
+
+13.Alternative Commands
+Upload using copyFromLocal
+hadoop fs -copyFromLocal sample.txt
+/rmm_bda_lab
+
+Download using copyToLocal
+hadoop fs -copyToLocal
+/rmm_bda_lab/sample.txt
+Desktop/rmm/sample1.txt
+
+14.Disk Usage
+hadoop fs -du -s -h /rmm_bda_labReading Files
+
+15.View full file
+hadoop fs -cat /rmm_bda_lab/sample.txt
+
+16.First lines
+hadoop fs -cat /rmm_bda_lab/sample.txt |
+head -n 5
+
+17.Last lines
+hadoop fs -cat /rmm_bda_lab/sample.txt | tail
+-n 2
+
+Writing to HDFS
+18.Append data
+echo "This is new data" | hadoop fs -
+appendToFile - /rmm_bda_lab/sample.txt
+
+19.Create new file
+echo "Sample Content" | hadoop fs -put -
+/rmm_bda_lab/sample1.txt
+
+20.Copy Files
+Create directory
+hadoop fs -mkdir /rmm_bda_lab1Copy file
+hadoop fs -cp /rmm_bda_lab/sample.txt
+/rmm_bda_lab1
+
+21.Move File
+hadoop fs -mv /rmm_bda_lab/sample.txt
+/rmm_bda_lab1
+
+=============Word Count using MapReduce ===============
+Python code (wcmap):
+import sys
+for line in sys.stdin:
+line = line.strip()
+words = line.split()
+for word in words:
+print('%s\t%s' % (word, 1))
+
+Python code (wcred):
+#!/usr/bin/env python2
+"""wcred.py"""
+
+from operator import itemgetter
+import sys
+
+current_word = None
+current_count = 0
+word = None
+
+# input comes from STDIN
+for line in sys.stdin:
+    # remove leading and trailing whitespace
+    line = line.strip()
+
+    # parse the input we got from mapper.py
+    word, count = line.split('\t', 1)
+
+    # convert count (currently a string) to int
+    try:
+        count = int(count)
+    except ValueError:
+        # count was not a number, so silently
+        # ignore/discard this line
+        continue
+
+    # this IF-switch only works because Hadoop sorts map output
+    # by key (here: word) before it is passed to the reducer
+    if current_word == word:
+        current_count += count
+    else:
+        if current_word:
+            # write result to STDOUT
+            print('%s\t%s' % (current_word, current_count))
+        current_count = count
+        current_word = word
+
+# do not forget to output the last word if needed!
+if current_word == word:
+    print ('%s\t%s' % (current_word, current_count))
+
+Word.txt:
+Bus, Car, bus,  car, train, car, bus, car, train, bus, TRAIN,BUS, buS, caR, CAR, car, BUS, TRAIN, Bus, Car, bus, car, train
+
+1.Go to WordCount Folder
+cd Desktop/RMMBDALAB/MapReduce/wordcount
+
+2.Check Files
+ls
+
+3.View Input File
+cat word.txt
+
+4.Run Mapper Only
+python3 wcmap.py < word.txt
+
+5.Run MapReduce Locally
+cat word.txt | python3 wcmap.py | sort -k1,1
+| python3 wcred.py
+
+In Hadoop 
+
+6.Start Hadoop
+start-all.sh
+Check Hadoop Processes
+
+7.jps
+
+8.Create HDFS Directory
+hadoop fs -mkdir -p /rmm_wordcount
+
+9.Upload File to HDFS
+hadoop fs -copyFromLocal word.txt
+/rmm_wordcount
+
+10.Check Uploaded File
+hadoop fs -ls /rmm_wordcount
+
+11.Run MapReduce on Hadoop
+hadoop jar
+/home/hadoop/hadoop/share/hadoop/tools/l
+ib/hadoop-streaming-3.3.6.jar
+-file wcmap.py -mapper "python3 wcmap.py"
+-file wcred.py -reducer "python3 wcred.py"
+-input /rmm_wordcount/word.txt
+-output /rmm_wordcount/output1
+
+12.View Output
+hadoop fs -cat
+/rmm_wordcount/output1/part-00000
+
+
+
+=============EXP: Weather Dataset using MapReduce ===============
+
+Python code (temp-mapper.py):
+#!/usr/bin/env python3
+#temp-mapper.py 
+
+import sys
+
+def mapper():
+    for line in sys.stdin:
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        date = parts[2].split('_')[0]  # Extract the date part (YYYYMMDD)
+        try:
+            temp = float(parts[3])         # Extract the temperature
+        except ValueError:
+            continue
+        print(f"{date}\t{temp}")
+
+if __name__ == "__main__":
+    mapper()
+
+Python code (temp-reducer.py):
+#!/usr/bin/env python3
+#temp-reducer.py
+
+import sys
+from collections import defaultdict
+
+def reducer():
+    current_key = None
+    max_temp = float('-inf')
+
+    for line in sys.stdin:
+        key, temp = line.strip().split('\t')
+        temp = float(temp)
+
+        if key != current_key:
+            if current_key:
+                print(f"{current_key}\t{max_temp}")
+            current_key = key
+            max_temp = temp
+        else:
+            max_temp = max(max_temp, temp)
+
+    if current_key:
+        print(f"{current_key}\t{max_temp}")
+
+if __name__ == "__main__":
+    reducer()
+
+
+Weather.txt:
+cl1p.net/datasets
+ex:
+690190 13910  20060201_0  51.75     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_1  54.74     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_2  50.59     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_3  51.67     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_4  65.67     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_5  55.37     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000 	
+690190 13910  20060201_6  49.26     33.0 24  1006.3 24   943.9 24   15.0 24   10.7 24   22.0   28.9    0.00I 999.9  000000
+
+1.Go to Weather Dataset Folder
+cd
+Desktop/RMMBDALAB/MapReduce/Weather_
+Dataset
+
+2.Check Files
+ls
+
+3.View Dataset
+cat weather.txt
+
+4.Run Mapper + Reducer Locally
+cat weather.txt | python3 temp-mapper.py |
+sort | python3 temp-reducer.py
+
+5.Start Hadoop
+start-all.sh
+
+6.Check Hadoop Processes
+jps
+
+7.Create HDFS Directory
+hadoop fs -mkdir /rmm_weather_data
+
+8.Upload Dataset to HDFS
+hadoop fs -put weather.txt
+/rmm_weather_data
+
+9.Check Upload
+hadoop fs -ls /rmm_weather_data
+
+10.Run MapReduce Job
+Hadoop jar
+/home/hadoop/hadoop/share/hadoop/tools/l
+ib/hadoop-streaming-3.3.6.jar
+-file temp-mapper.py -mapper "python3
+temp-mapper.py"
+-file temp-reducer.py -reducer "python3 tempreducer.py"
+-input /rmm_weather_data
+-output /rmm_weather_data/weather_output
+
+11.Check Output Folder
+hadoop fs -ls
+/rmm_weather_data/weather_output
+
+12.View Final Output
+hadoop fs -cat
+/rmm_weather_data/weather_output/part00000
+
+===============EXP: Uber Data Analysis using MapReduce====================
+
+
+Python code (uber_mapper.py):
+#!/usr/bin/env python3
+#uber_mapper.py 
+
+import sys
+import csv
+
+def mapper():
+    for line in sys.stdin:
+        line = line.strip()
+        data = list(csv.reader([line]))[0]
+
+        # Skip lines that don't have the expected number of columns
+        if len(data) < 4:
+            continue
+        
+        # Skip header row
+        if data[0].lower() == 'date/time':
+            continue
+        
+        # Extract the date part from the Date/Time column
+        date_time = data[0]
+        date = date_time.split(' ')[0]  # Get the date part (before the space)
+        
+        print(f"{date}\t1")
+
+if __name__ == "__main__":
+    mapper()
+
+
+Python code (temp-reducer.py):
+#!/usr/bin/env python3
+#uber_reducer.py
+
+import sys
+
+def reducer():
+    current_date = None
+    current_count = 0
+
+    for line in sys.stdin:
+        line = line.strip()
+        date, count = line.split('\t')
+
+        try:
+            count = int(count)
+        except ValueError:
+            continue
+
+        if current_date == date:
+            current_count += count
+        else:
+            if current_date is not None:
+                print(f"{current_date}\t{current_count}")
+            current_date = date
+            current_count = count
+
+    # Output the count for the last date
+    if current_date is not None:
+        print(f"{current_date}\t{current_count}")
+
+if __name__ == "__main__":
+    reducer()
+
+
+
+uber_data.csv:
+cl1p.net/datasets
+ex:
+Date/Time	Lat	Lon	Base
+04-01-2014 00:11	40.769	-73.9549	B02512
+04-01-2014 00:17	40.7267	-74.0345	B02512
+04-01-2014 00:21	40.7316	-73.9873	B02512
+04-01-2014 00:28	40.7588	-73.9776	B02512
+
+
+1.Go to Uber Folder
+cd
+Desktop/RMMBDALAB/MapReduce/UberData
+_Analysis
+
+2.Check Files
+Ls
+
+3.View Dataset
+cat uber_data.csv
+
+4.Run Mapper
+python3 uber_mapper.py < uber_data.csv
+
+5.Run MapReduce Locally
+cat uber_data.csv | python3 uber_mapper.py
+| sort -k1,1 | python3 uber_reducer.py
+
+6.Start Hadoop
+start-all.sh
+
+7.Check Hadoop Processes
+jps
+
+8.Create HDFS Directory
+hadoop fs -mkdir /rmm_uber_data
+
+9.Upload Data to HDFS
+hadoop fs -put uber_data.csv
+/rmm_uber_data
+
+10.Check Upload
+hadoop fs -ls /rmm_uber_data
+
+11.Run MapReduce on Hadoop (Small Dataset)
+hadoop jar
+/home/hadoop/hadoop/share/hadoop/tools/l
+ib/hadoop-streaming-3.3.6.jar \
+-file uber_mapper.py -mapper "python3
+uber_mapper.py" \
+-file uber_reducer.py -reducer "python3
+uber_reducer.py" \
+-input /rmm_uber_data/uber_data.csv \
+-output /rmm_uber_data/uber_output1
+
+12.View Output
+hadoop fs -cat
+/rmm_uber_data/uber_output1/part-00000
+
+============Pig UDF for Filtering Data=============
+
+i)To calc max temp weather in Pig
+
+gedit weather_sample.txt
+1950 0 1
+1950 22 1
+1950 -11 1
+1949 111 1
+1949 78 1
+1949 45 0
+1951 9999 2
+1951 9999 5
+1952 9999 9
+1953 25 0
+
+(paste data, CTRL+S, CTRL+Q)
+
+start-all.sh jps
+
+pig -x local
+
+records = LOAD 'weather_sample.txt'
+AS (year:chararray, temperature:int,
+quality:int);
+DESCRIBE records;
+DUMP records;
+
+filtered_records = FILTER records BY
+temperature != 9999 AND
+quality IN (0,1,4,5,9);
+DUMP filtered_records;
+
+grouped_records = GROUP
+filtered_records BY year;
+DUMP grouped_records;
+max_temp = FOREACH grouped_records
+GENERATE group,
+MAX(filtered_records.temperature);
+DUMP max_temp;
+
+3.ii) UDF/Eval func students data in Pig
+
+mkdir bda cd bda
+cat > students.txt
+Alice,45
+Bob,60
+Charlie,80
+David,30 #CTRL+D
+cat > myudf.py
+def pass_students(marks):
+ if marks is None:
+ return 'false'
+ return 'true' if int(marks) > 50 else 'false'
+def square(num):
+ if num is None:
+ return 0
+ return int(num) * int(num) #CTRL+D
+
+start-all.sh 
+jps 
+jython –version
+pig -x local
+set script.pig.udf.import.list myudf;
+REGISTER 'myudf.py' USING jython AS
+myudf;
+
+students = LOAD 'students.txt'
+USING PigStorage(',')
+AS (name:chararray, marks:int);
+passed_students = FILTER students BY
+myudf.pass_students(marks) == 'true';
+DUMP passed_students;
+squared_values = FOREACH students
+GENERATE name, myudf.square(marks);
+DUMP squared_values;

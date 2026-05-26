@@ -1,0 +1,532 @@
+=============EXP: HiveQL===============
+1.Go to Hive Directory
+cd $HIVE_HOME
+
+2.Start Hive
+Hive
+
+3.Create Weather Data
+nano weather_sample.txt
+10 0-01-1990 123112 10
+14-02-1991 283901 11
+10-03-1990 381920 15
+10-01-1991 302918 22
+ETC
+
+4.Create Hive Table
+CREATE TABLE weather_data (
+weather_date STRING, station_id INT,
+temperature INT)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t';
+
+5.Show Tables
+show tables;
+Describe Table
+describe weather_data;
+
+6.Load Data into Table
+LOAD DATA LOCAL INPATH
+'/home/hadoop/Desktop/RMMBDALAB/Exp4.HIve/weather_sample.txt'
+INTO TABLE weather_data;
+
+7.View Table Data
+SELECT * FROM weather_data;
+
+8.View Limited Data
+SELECT * FROM weather_data LIMIT 5;
+
+9.Create External Table
+CREATE EXTERNAL TABLE weather_external (
+weather_date STRING,
+station_id INT,
+temperature INT
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+LOCATION
+'/user/hive/external/weather_data/';
+
+
+10.Create Partitioned Table
+CREATE TABLE weather_partitioned
+(weather_date STRING, station_id INT, 
+temperature INT)
+PARTITIONED BY (year STRING) ROW FORMAT
+DELIMITED FIELDS TERMINATED BY '\t';
+Add Partition
+ALTER TABLE weather_partitioned ADD
+PARTITION (year='1990');
+
+11.Create Bucketed Table
+ CREATE TABLE weather_bucketed (
+weather_date STRING,
+station_id INT,
+temperature INT
+)
+CLUSTERED BY (station_id) INTO 4 BUCKETS
+ROW FORMAT DELIMITEDFIELDS TERMINATED BY '\t';
+Alter Table
+ALTER TABLE weather_data ADD COLUMNS
+(humidity INT);
+
+12.Drop Table
+DROP TABLE weather_data;
+
+13.Maximum Temperature
+SELECT MAX(temperature) FROM weather_data;
+
+14.Minimum Temperature
+SELECT MIN(temperature) FROM
+weather_data;
+
+15.Sort Data
+SELECT * FROM weather_data ORDER BY
+temperature DESC;
+
+16.Average Temperature by Year
+SELECT substr(weather_date,7,4) AS year,
+AVG(temperature) FROM
+weather_data GROUP BY
+year;
+
+18.Create Station Data
+nano stationdata.txt
+123112 NYC
+283901 LA
+381920 Chicago
+302918 Houston
+384902 Dallas
+etc
+
+19.Create Station Table
+CREATE TABLE station_info (
+station_id INT,
+location STRING
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t';
+Load Station Data
+LOAD DATA LOCAL INPATH
+'/home/hadoop/Desktop/rmm/stationdata.txt
+’
+INTO TABLE station_info;
+
+20.JOINS
+
+SELECT * FROM station_info;
+SELECT * FROM weather_data;
+SELECT w.weather_date, w.temperature,
+s.location
+FROM weather_data w
+JOIN station_info s
+ON w.station_id = s.station_id;
+
+21.Subquery
+SELECT * FROM weather_data
+WHERE temperature = (SELECT
+MAX(temperature) FROM weather_data);
+
+22.View
+CREATE VIEW temp_summary AS
+SELECT station_id, AVG(temperature) AS
+avg_temp
+FROM weather_data
+GROUP BY station_id;
+SELECT * FROM temp_summary;
+
+=============EXP: Hive UDF using Python===============
+
+1.Create Python UDF File
+nano /home/hadoop/strip_udf.py
+
+2.Python Code (strip_udf.py)
+#!/usr/bin/env python3
+import sys
+for line in sys.stdin:
+print(line.strip().strip('.,!'))
+
+3.Make Script Executable
+chmod +x /home/hadoop/strip_udf.py
+
+4.Upload File to HDFS (Optional)
+hdfs dfs -put /home/hadoop/strip_udf.py
+/user/hadoop/
+
+5.Go to Hive
+cd $HIVE_HOME
+
+6.Start Hive
+hive
+
+7.Add Python File in Hive
+ADD FILE /home/hadoop/strip_udf.py;
+
+8.Verify File
+LIST FILE;
+
+9.Show Tables
+SHOW TABLES;
+
+10.Create Table
+CREATE TABLE my_table (text_column
+STRING);
+
+11.Describe Table 
+DESCRIBE my_table; 
+LOAD DATA LOCAL INPATH
+LOAD DATA LOCAL INPATH '/home/hadoop/sample.txt' INTO TABLE my_table1;
+
+12.create sample.txt
+sample.txt: 
+Hello World!!! 
+,Data Processing., 
+Big Data!!  
+Python,Hadoop!! 
+
+13.View Data
+SELECT * FROM my_table1;
+
+14.Run Hive UDF
+
+SELECT TRANSFORM (text_column)
+USING 'python3 strip_udf.py'
+AS (cleaned_text)
+FROM my_table1;
+
+Sample Input (sample.txt)
+Hello World!!!
+,Data Processing.,
+Big Data!!
+Python,Hadoop!!
+
+Expected Output
+Hello World
+Data Processing
+Big Data
+Python,Hadoop
+
+=============EXP: Spark SQL===============
+
+1.Go to Hive Directory
+cd/home/hadoop/spark-3.5.2-binhadoop3
+
+Start Spark SQL
+2.cd bin./spark-sql
+
+3.Create Spark SQL Table
+CREATE TABLE flights (
+DEST_COUNTRY_NAME STRING, ORIGIN_COUNTRY_NAME STRING, count LONG)
+USING JSON OPTIONS (path
+'/home/hadoop/Desktop/SparkSQLrmm/2015-summary.json')
+;
+DESCRIBE TABLE flights;
+select * from flights;
+
+
+
+SELECT
+CASE WHEN DEST_COUNTRY_NAME = 'UNITED STATES' THEN 1
+WHEN DEST_COUNTRY_NAME = 'Egypt' THEN 0
+ELSE -1 END
+FROM flights;
+
+SELECT DEST_COUNTRY_NAME, ARRAY(1, 2, 3) FROM
+flights;
+
+SELECT DEST_COUNTRY_NAME as new_name, collect_list(count)[0]
+FROM flights GROUP BY DEST_COUNTRY_NAME;
+
+SHOW FUNCTIONS;
+
+SHOW SYSTEM FUNCTIONS;
+
+SHOW FUNCTIONS "s*"; 
+
+SHOW FUNCTIONS LIKE "collect*"; 
+
+SELECT dest_country_name FROM flights
+GROUP BY dest_country_name ORDER BY sum(count) DESC
+LIMIT 5;
+
+SELECT * FROM flights
+WHERE origin_country_name IN (SELECT dest_country_name FROM flights
+GROUP BY dest_country_name ORDER BY sum(count) DESC
+LIMIT 5);
+
+SELECT * FROM flights f1
+WHERE EXISTS (SELECT 1 FROM flights f2
+WHERE f1.dest_country_name = f2.origin_country_name)
+AND EXISTS (SELECT 1 FROM flights f2
+WHERE f2.dest_country_name = f1.origin_country_name);
+
+
+=============EXP: Word Count Scala ===============
+1.Starting Spark
+cd/home/hadoop/spark-3.5.2-binhadoop3
+
+2.Starting Spark Shell
+cd bin./spark-shell
+
+3.Create Input File
+Open new terminal:
+nano /home/hadoop/SparkCount.txt
+hello spark hello big data spark
+Hadoop
+Save and exit.
+
+4.Load File into RDD
+val rdd1 =sc.textFile("/home/hadoop/SparkCount.txt")
+
+5.Split Words using flatMap
+val words = rdd1.flatMap(line =>line.split(" "))
+
+6.Map each word with count 1
+val wordPairs = words.map(word =>(word, 1))
+
+7.Reduce by key to count words
+val wordCounts =wordPairs.reduceByKey((a, b) => a +b)
+
+8.Display Output
+wordCounts.collect()
+
+9.Convert to DataFrame
+val df = wordCounts.toDF("word",
+"count")
+
+Output:
+| word |count|
++------+-----+
+|hello | 2 |
+|spark | 2 |
+|big | 1 |
+|data | 1 |
+|hadoop| 1 |
+
+
+=============EXP: Word Count PYSpark===============
+
+1.Starting Spark
+cd/home/hadoop/spark-3.5.2-binhadoop3
+
+2.Starting Python Spark Shell
+cd bin./pyspark
+
+3.Create Input File
+Open new terminal:
+nano /home/hadoop/SparkCount.txt
+hello spark hello big data spark
+Hadoop
+Save and exit.
+
+4.Load File into RDD
+rdd1 =sc.textFile("/home/hadoop/SparkCount.txt")
+
+5.Split Words using flatMap
+words = rdd1.flatMap(lambda line:line.split(" "))
+
+6.Map each word with count 1
+wordPairs = words.map(lambda word:(word, 1))
+
+7.Reduce by key to count words
+wordCounts =wordPairs.reduceByKey(lambda a, b: a+ b)
+
+8.Display Output
+wordCounts.collect()
+
+9.Convert to DataFrame
+df = wordCounts.toDF(["word",
+"count"])
+df.show()
+Output:
+| word |count|
++------+-----+
+|hello | 2 |
+|spark | 2 |
+|big | 1 |
+|data | 1 |
+|hadoop| 1 | 
+
+=============EXP: Spark Streaming ===============
+
+Create sparkstream.py program
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col,
+sum
+from pyspark.sql.types import
+StructType, StructField, IntegerType,
+DoubleType
+# Step 1: Initialize Spark Session
+spark = SparkSession.builder \
+ .appName("RetailStoreStreaming") \
+
+.config("spark.ui.showConsoleProgress",
+"false") \
+ .getOrCreate()
+spark.sparkContext.setLogLevel("ERROR"
+)
+schema = StructType([
+ StructField("ProductID", IntegerType(),
+True),
+ StructField("Amount", DoubleType(),
+True)
+])
+# Step 2: Read Streaming Data from CSV
+File
+input_path =
+"/home/hadoop/spark_input"
+retail_stream_df = spark \
+ .readStream \
+ .format("csv") \
+ .option("header", "true") \
+ .schema(schema) \
+ .load(input_path)
+# Step 3: Process Data (Aggregate Total
+Sales per Product)
+processed_df =
+retail_stream_df.groupBy("ProductID").a
+gg(sum("Amount").alias("TotalSales"))
+# Step 4: Write Stream Output to Console
+query = processed_df.writeStream \
+ .outputMode("complete") \
+ .format("console") \
+ .start()
+# Await Termination
+query.awaitTermination()
+
+########same python code############
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, sum
+from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType
+
+# Step 1: Initialize Spark Session
+spark = SparkSession.builder \
+    .appName("RetailStoreStreaming") \
+    .config("spark.ui.showConsoleProgress", "false") \
+    .getOrCreate()
+
+spark.sparkContext.setLogLevel("ERROR")
+
+schema = StructType([
+    StructField("ProductID", IntegerType(), True),
+    StructField("Amount", DoubleType(), True)
+])
+
+input_path = "/home/hadoop/spark_input"
+
+retail_stream_df = spark \
+    .readStream \
+    .format("csv") \
+    .option("header", "true") \
+    .schema(schema) \
+    .load(input_path)
+
+# Step 3: Process Data (Aggregate Total Sales per Product)
+processed_df = retail_stream_df.groupBy("ProductID") \
+    .agg(sum("Amount").alias("TotalSales"))
+
+# Step 4: Write Stream Output to Console
+query = processed_df.writeStream \
+    .outputMode("complete") \
+    .format("console") \
+    .start()
+
+# Await Termination
+query.awaitTermination()
+
+
+2.Create input file
+nano
+/home/hadoop/spark_input/file1.csv
+ProductID,Amount
+101,250.0
+102,180.5
+103,320.0
+101,100.0
+102,220.0
+104,150.0
+
+3.Starting Spark
+cd/home/hadoop/spark-3.5.2-binhadoop3
+
+4.Run using following command
+./spark-submit/home/hadoop/sparkstream.py
+
+
+=============EXP: Kafka===============
+
+1.Update System and Install Java 21sudo
+sudo apt update
+sudo apt install openjdk-21-jdk
+
+2.Set Java Environment Variables
+nano ~/.bashrc
+export JAVA_HOME=/usr/lib/jvm/java21-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+
+3.Verify Java Installation
+java -version
+javac -version
+echo $JAVA_HOME
+
+4.Download Kafka
+cd ~
+wget
+https://archive.apache.org/dist/kafka/3.
+6.1/kafka_2.13-3.6.1.tgz
+tar -xvzf kafka_2.13-3.6.1.tgz
+mv kafka_2.13-3.6.1 kafka
+
+=======start from here=====
+5.Kafka directory
+cd ~/kafka
+
+6.Format Kafka Storage (One-Time Step)
+Run:
+bin/kafka-storage.sh format -t
+$(bin/kafka-storage.sh random-uuid) -c
+config/kraft/server.properties
+
+7.Start Kafka Server
+Run:
+bin/kafka-server-start.sh
+config/kraft/server.properties
+
+8.Create Kafka Topic (New Terminal)
+Open a new terminal and run:
+cd ~/kafka
+bin/kafka-topics.sh --create --topic
+quickstart-events --bootstrap-server
+localhost:9092
+
+9.Start Kafka Producer
+Run:
+bin/kafka-console-producer.sh --topic
+quickstart-events --bootstrap-server
+localhost:9092
+
+10.Start Kafka Consumer (New Terminal)
+Open another terminal and run:
+cd ~/kafka
+bin/kafka-console-consumer.sh --topic
+quickstart-events --from-beginning --
+bootstrap-server localhost:9092
+
+========optional=========
+11.Switch Java back to 8
+sudo update-alternatives --config java
+Type the number for Java 8 (example: 1)
+Switch Javac
+sudo update-alternatives --config javac
+choose Java 8
+Update Environment Variables
+nano ~/.bashrc
+export JAVA_HOME=/usr/lib/jvm/java-8-
+openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+Verify
+java -version
+javac -version
+echo $JAVA_HOME 
+
+
